@@ -62,8 +62,6 @@ def get_base_run_schema() -> dict:
     return {
         "name": {FieldTypes.TITLE.value: {}},
         "description": {FieldTypes.RICH_TEXT.value: {}},
-        "date": {FieldTypes.DATE.value: {}},
-        "user": {FieldTypes.PEOPLE.value: {}},
         "source": {FieldTypes.RICH_TEXT.value: {}},
         "version": {FieldTypes.RICH_TEXT.value: {}},
         "tags": {FieldTypes.MULTI_SELECT.value: {"options": []}},
