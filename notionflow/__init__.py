@@ -11,3 +11,4 @@ from .fluent import (
     start_page,
 )
 from .page import Page
+from .report import Report

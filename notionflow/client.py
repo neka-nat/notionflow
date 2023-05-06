@@ -50,6 +50,16 @@ class NotionFlowClient:
         params: Optional[dict] = None,
         metrics: Optional[dict] = None,
     ) -> ResponseDB:
+        """Create a database.
+
+        Args:
+            database_title: Title of the database.
+            params: Parameters used in the experiment.
+            metrics: Metrics used in the experiment.
+
+        Returns:
+            ResponseDB: Response of the database creation.
+        """
         run_schema = get_base_run_schema()
         if params is not None:
             run_schema.update({f"Params[{key}]": {self.params_map[value]: {}} for key, value in params.items()})
@@ -72,11 +82,69 @@ class NotionFlowClient:
             cnt += 1
         return False
 
+    def get_page(self, page_id: str) -> Optional[PageInfo]:
+        """Get page info.
+
+        Args:
+            page_id: ID of the page.
+
+        Returns:
+            Optional[PageInfo]: Page info.
+        """
+        res = self._notion_client.pages.retrieve(page_id)
+        return PageInfo(**res)
+
+    def get_page_by_name(self, database_id: str, name: str) -> Optional[PageInfo]:
+        """Get page info by name.
+
+        Args:
+            name: Name of the page.
+
+        Returns:
+            Optional[PageInfo]: Page info.
+        """
+        page_list = self.get_page_list_from_database(database_id)
+        for page in page_list:
+            if (
+                len(page.properties["name"]["title"]) > 0
+                and page.properties["name"]["title"][0]["text"]["content"] == name
+            ):
+                return page
+        return None
+
+    def get_page_list_from_database(self, database_id: str) -> list[PageInfo]:
+        """Get page list from database.
+
+        Args:
+            database_id: ID of the database.
+
+        Returns:
+            list[PageInfo]: List of page info.
+        """
+        infos = self._notion_client.databases.query(database_id).get("results")
+        return [PageInfo(**info) for info in infos]
+
     def get_database(self, database_id: str) -> Optional[DatabaseInfo]:
+        """Get database info.
+
+        Args:
+            database_id: ID of the database.
+
+        Returns:
+            Optional[DatabaseInfo]: Database info.
+        """
         res = self._notion_client.databases.retrieve(database_id)
         return DatabaseInfo(**res)
 
     def get_database_by_name(self, name: str) -> Optional[DatabaseInfo]:
+        """Get database info by name.
+
+        Args:
+            name: Name of the database.
+
+        Returns:
+            Optional[DatabaseInfo]: Database info.
+        """
         db_list = self.get_db_list()
         for db in db_list:
             if len(db.title) >= 1 and db.title[0]["text"]["content"] == name:
@@ -84,10 +152,24 @@ class NotionFlowClient:
         return None
 
     def get_db_list(self) -> list[DatabaseInfo]:
+        """Get database list.
+
+        Returns:
+            list[DatabaseInfo]: List of database info.
+        """
         infos = self._notion_client.search(filter={"property": "object", "value": "database"}).get("results")
         return [DatabaseInfo(**info) for info in infos]
 
     def add_empty_page(self, database_id: str, title: Optional[str] = None) -> PageInfo:
+        """Add an empty page to the database.
+
+        Args:
+            database_id: ID of the database.
+            title: Title of the page.
+
+        Returns:
+            PageInfo: The generated page info.
+        """
         res = self._notion_client.pages.create(
             parent={"database_id": database_id},
             properties={"name": {"title": [{"type": "text", "text": {"content": title or "New page"}}]}},
@@ -95,7 +177,17 @@ class NotionFlowClient:
         return PageInfo(**res)
 
     def log_param(self, page_id: str, key: str, value: Union[str, float, bool]) -> PageInfo:
-        page_info = PageInfo(**self._notion_client.pages.retrieve(page_id))
+        """Log a parameter to the page.
+
+        Args:
+            page_id: ID of the page.
+            key: Key of the parameter.
+            value: Value of the parameter.
+
+        Returns:
+            PageInfo: The updated page info.
+        """
+        page_info = self.get_page(page_id)
         actual_key = f"Params[{key}]"
         if actual_key not in page_info.properties:
             raise KeyError(f"Key {key} not found in page {page_id}")
@@ -114,7 +206,7 @@ class NotionFlowClient:
         return PageInfo(**self._notion_client.pages.update(page_id, properties={actual_key: new_value}))
 
     def log_metric(self, page_id: str, key: str, value: float, step: Optional[int] = None) -> PageInfo:
-        page_info = PageInfo(**self._notion_client.pages.retrieve(page_id))
+        page_info = self.get_page(page_id)
         metric_property = self._metric_property(page_info, key, value, step)
         return PageInfo(**self._notion_client.pages.update(page_info.id, properties=metric_property))
 
@@ -136,7 +228,7 @@ class NotionFlowClient:
         return {actual_key: new_value}
 
     def log_metrics(self, page_id: str, values: dict[str, float], step: Optional[int] = None) -> PageInfo:
-        page_info = PageInfo(**self._notion_client.pages.retrieve(page_id))
+        page_info = self.get_page(page_id)
         metric_properties = {}
         for key, value in values.items():
             metric_property = self._log_metric(page_info, key, value, step)
@@ -147,7 +239,7 @@ class NotionFlowClient:
         pass
 
     def set_tag(self, page_id: str, tag: str, color: Optional[str] = None) -> PageInfo:
-        page_info = PageInfo(**self._notion_client.pages.retrieve(page_id))
+        page_info = self.get_page(page_id)
         if "tags" not in page_info.properties:
             raise KeyError(f"Key tags not found in page {page_info.id}")
         value = page_info.properties["tags"]
