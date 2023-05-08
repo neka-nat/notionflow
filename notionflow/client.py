@@ -5,6 +5,7 @@ from typing import Optional, Union
 
 from notion_client import Client
 
+from notionflow.api_extentions import extend_notion_client
 from notionflow.models import (
     DatabaseInfo,
     FieldTypes,
@@ -41,7 +42,7 @@ class NotionFlowClient:
         if parent_page_id is None:
             parent_page_id = os.environ.get("NOTION_PARENT_PAGE_ID")
 
-        self._notion_client = Client(auth=auth)
+        self._notion_client = extend_notion_client(Client(auth=auth))
         self._parent_page_id = parent_page_id
 
     def create_database(
